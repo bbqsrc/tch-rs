@@ -406,7 +406,8 @@ impl SystemInfo {
             LinkType::Dynamic => println!("cargo:rustc-link-lib={lib_name}"),
             LinkType::Static => {
                 // TODO: whole-archive might only be necessary for libtorch_cpu?
-                println!("cargo:rustc-link-lib=static:+whole-archive,-bundle={lib_name}")
+                // println!("cargo:rustc-link-lib=static:+whole-archive,-bundle={lib_name}")
+                println!("cargo:rustc-link-lib=static={lib_name}")
             }
         }
     }
