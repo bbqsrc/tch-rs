@@ -468,26 +468,48 @@ fn main() -> anyhow::Result<()> {
             system_info.link("torch_python")
         }
         if system_info.link_type == LinkType::Static {
-            // TODO: this has only be tried out on the cpu version. Check that it works
-            // with cuda too and maybe just try linking all available files?
-            system_info.link("asmjit");
-            system_info.link("clog");
-            system_info.link("cpuinfo");
-            system_info.link("dnnl");
-            system_info.link("dnnl_graph");
-            system_info.link("fbgemm");
-            system_info.link("gloo");
-            system_info.link("kineto");
-            system_info.link("nnpack");
-            system_info.link("onnx");
-            system_info.link("onnx_proto");
-            system_info.link("protobuf");
-            system_info.link("pthreadpool");
-            system_info.link("pytorch_qnnpack");
-            system_info.link("sleef");
-            system_info.link("tensorpipe");
-            system_info.link("tensorpipe_uv");
-            system_info.link("XNNPACK");
+            // Dynamically discover all .a files in the lib directory and subdirectories
+            use std::collections::HashSet;
+
+            fn walk_static_libs(dir: &Path, lib_dirs: &mut HashSet<PathBuf>, libs: &mut Vec<String>) -> io::Result<()> {
+                if dir.is_dir() {
+                    for entry in fs::read_dir(dir)? {
+                        let entry = entry?;
+                        let path = entry.path();
+                        if path.is_dir() {
+                            walk_static_libs(&path, lib_dirs, libs)?;
+                        } else if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                            if filename.ends_with(".a") && filename.starts_with("lib") {
+                                // Track the directory containing this .a file
+                                if let Some(parent) = path.parent() {
+                                    lib_dirs.insert(parent.to_path_buf());
+                                }
+                                // Extract library name: libfoo.a -> foo
+                                let lib_name = &filename[3..filename.len() - 2];
+                                libs.push(lib_name.to_string());
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
+
+            let mut lib_dirs = HashSet::new();
+            let mut libs = Vec::new();
+
+            if let Err(e) = walk_static_libs(&system_info.libtorch_lib_dir, &mut lib_dirs, &mut libs) {
+                eprintln!("Warning: failed to walk static library directory: {}", e);
+            }
+
+            // Add link search paths for all directories containing .a files
+            for lib_dir in lib_dirs {
+                println!("cargo:rustc-link-search=native={}", lib_dir.display());
+            }
+
+            // Link all discovered static libraries
+            for lib in libs {
+                system_info.link(&lib);
+            }
         }
         system_info.link("torch_cpu");
         system_info.link("torch");
