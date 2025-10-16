@@ -522,7 +522,18 @@ fn main() -> anyhow::Result<()> {
         let target = env::var("TARGET").context("TARGET variable not set")?;
 
         if !target.contains("msvc") && !target.contains("apple") {
-            println!("cargo:rustc-link-lib=gomp");
+            let toolchain = env_var_rerun("LIBTORCH_TOOLCHAIN")
+                .unwrap_or_else(|_| "gnu".to_string())
+                .to_lowercase();
+
+            match toolchain.as_str() {
+                "llvm" => println!("cargo:rustc-link-lib=omp"),
+                "gnu" => println!("cargo:rustc-link-lib=gomp"),
+                _ => {
+                    eprintln!("Warning: Unknown LIBTORCH_TOOLCHAIN value '{}', defaulting to 'gnu'", toolchain);
+                    println!("cargo:rustc-link-lib=gomp");
+                }
+            }
         }
     }
     Ok(())
