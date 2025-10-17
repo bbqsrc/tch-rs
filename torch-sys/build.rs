@@ -511,7 +511,9 @@ fn main() -> anyhow::Result<()> {
             for lib in libs {
                 // system_info.link(&lib);
             }
-            println!("cargo:rustc-link-lib=static=omp")
+            println!("cargo:rustc-link-lib=static=omp");
+            println!("cargo:rustc-link-lib=static=cpuinfo");
+            println!("cargo:rustc-link-lib=static=pthreadpool");
         } else {
             system_info.link("torch_cpu");
             system_info.link("torch");
