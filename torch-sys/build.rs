@@ -534,7 +534,7 @@ fn main() -> anyhow::Result<()> {
             ];
 
             for lib in LIBS {
-                println!("cargo:rustc-link-lib=static={lib}");
+                println!("cargo:rustc-link-lib=static:+whole-archive={lib}");
             }
 
             let os = env::var("CARGO_CFG_TARGET_OS").expect("Unable to get TARGET_OS");
