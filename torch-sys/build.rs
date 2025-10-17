@@ -495,22 +495,22 @@ fn main() -> anyhow::Result<()> {
                 Ok(())
             }
 
-            let mut lib_dirs = HashSet::new();
-            let mut libs = Vec::new();
+            // let mut lib_dirs = HashSet::new();
+            // let mut libs = Vec::new();
 
-            if let Err(e) = walk_static_libs(&system_info.libtorch_lib_dir, &mut lib_dirs, &mut libs) {
-                eprintln!("Warning: failed to walk static library directory: {}", e);
-            }
+            // if let Err(e) = walk_static_libs(&system_info.libtorch_lib_dir, &mut lib_dirs, &mut libs) {
+            //     eprintln!("Warning: failed to walk static library directory: {}", e);
+            // }
 
             // Add link search paths for all directories containing .a files
-            for lib_dir in lib_dirs {
-                println!("cargo:rustc-link-search=native={}", lib_dir.display());
-            }
+            // for lib_dir in lib_dirs {
+            // println!("cargo:rustc-link-search=native={}", lib_dir.display());
+            // }
 
             // Link all discovered static libraries
-            for lib in libs {
+            // for lib in libs {
                 // system_info.link(&lib);
-            }
+            // }
 
             const LIBS: &[&str] = &[
                 "omp",
