@@ -472,7 +472,11 @@ fn main() -> anyhow::Result<()> {
             // Dynamically discover all .a files in the lib directory and subdirectories
             use std::collections::HashSet;
 
-            fn walk_static_libs(dir: &Path, lib_dirs: &mut HashSet<PathBuf>, libs: &mut Vec<String>) -> io::Result<()> {
+            fn walk_static_libs(
+                dir: &Path,
+                lib_dirs: &mut HashSet<PathBuf>,
+                libs: &mut Vec<String>,
+            ) -> io::Result<()> {
                 if dir.is_dir() {
                     for entry in fs::read_dir(dir)? {
                         let entry = entry?;
@@ -509,7 +513,7 @@ fn main() -> anyhow::Result<()> {
 
             // Link all discovered static libraries
             // for lib in libs {
-                // system_info.link(&lib);
+            // system_info.link(&lib);
             // }
 
             const LIBS: &[&str] = &[
@@ -532,6 +536,12 @@ fn main() -> anyhow::Result<()> {
             for lib in LIBS {
                 println!("cargo:rustc-link-lib=static={lib}");
             }
+
+            let os = env::var("CARGO_CFG_TARGET_OS").expect("Unable to get TARGET_OS").as_str();
+
+            if os == "macos" {
+                println!("cargo:rustc-link-lib=framework=Accelerate");
+            }
         } else {
             system_info.link("torch_cpu");
             system_info.link("torch");
@@ -552,7 +562,10 @@ fn main() -> anyhow::Result<()> {
                 "llvm" => println!("cargo:rustc-link-lib=omp"),
                 "gnu" => println!("cargo:rustc-link-lib=gomp"),
                 _ => {
-                    eprintln!("Warning: Unknown LIBTORCH_TOOLCHAIN value '{}', defaulting to 'gnu'", toolchain);
+                    eprintln!(
+                        "Warning: Unknown LIBTORCH_TOOLCHAIN value '{}', defaulting to 'gnu'",
+                        toolchain
+                    );
                     println!("cargo:rustc-link-lib=gomp");
                 }
             }
