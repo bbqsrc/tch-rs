@@ -537,9 +537,9 @@ fn main() -> anyhow::Result<()> {
                 println!("cargo:rustc-link-lib=static={lib}");
             }
 
-            let os = env::var("CARGO_CFG_TARGET_OS").expect("Unable to get TARGET_OS").as_str();
+            let os = env::var("CARGO_CFG_TARGET_OS").expect("Unable to get TARGET_OS");
 
-            if os == "macos" {
+            if &*os == "macos" {
                 println!("cargo:rustc-link-lib=framework=Accelerate");
             }
         } else {
