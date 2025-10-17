@@ -452,7 +452,7 @@ fn main() -> anyhow::Result<()> {
 
         system_info.make();
 
-        println!("cargo:rustc-link-lib=static=tch");
+        // println!("cargo:rustc-link-lib=static=tch");
         if use_cuda {
             system_info.link("torch_cuda")
         }
