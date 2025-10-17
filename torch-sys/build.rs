@@ -521,9 +521,11 @@ fn main() -> anyhow::Result<()> {
                 "XNNPACK",
                 "nnpack",
                 "pytorch_qnnpack",
+                "libmicrokernels-prod",
                 "torch_cpu",
                 "torch",
                 "c10",
+                "clog",
                 "fmt",
             ];
 
