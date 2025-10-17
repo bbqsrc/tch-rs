@@ -513,13 +513,14 @@ fn main() -> anyhow::Result<()> {
             }
 
             const LIBS: &[&str] = &[
-                "torch_cpu",
-                "torch",
-                "c10",
                 "omp",
                 "cpuinfo",
                 "pthreadpool",
-                "XNNPACK"
+                "XNNPACK",
+                "pytorch_qnnpack",
+                "torch_cpu",
+                "torch",
+                "c10",
             ];
 
             for lib in LIBS {
