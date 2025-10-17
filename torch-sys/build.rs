@@ -516,11 +516,15 @@ fn main() -> anyhow::Result<()> {
                 "omp",
                 "cpuinfo",
                 "pthreadpool",
+                "kleidiai",
+                "sleef",
                 "XNNPACK",
+                "nnpack",
                 "pytorch_qnnpack",
                 "torch_cpu",
                 "torch",
                 "c10",
+                "fmt",
             ];
 
             for lib in LIBS {
