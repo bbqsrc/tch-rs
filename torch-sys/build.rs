@@ -509,7 +509,7 @@ fn main() -> anyhow::Result<()> {
 
             // Link all discovered static libraries
             for lib in libs {
-                system_info.link(&lib);
+                // system_info.link(&lib);
             }
         } else {
             system_info.link("torch_cpu");
