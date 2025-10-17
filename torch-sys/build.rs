@@ -511,12 +511,13 @@ fn main() -> anyhow::Result<()> {
             for lib in libs {
                 system_info.link(&lib);
             }
-        }
-        system_info.link("torch_cpu");
-        system_info.link("torch");
-        system_info.link("c10");
-        if use_hip {
-            system_info.link("c10_hip");
+        } else {
+            system_info.link("torch_cpu");
+            system_info.link("torch");
+            system_info.link("c10");
+            if use_hip {
+                system_info.link("c10_hip");
+            }
         }
 
         let target = env::var("TARGET").context("TARGET variable not set")?;
