@@ -469,7 +469,7 @@ fn main() -> anyhow::Result<()> {
         // Special handling for iOS with lite interpreter
         if system_info.os == Os::Ios {
             println!("cargo:rustc-link-lib=static=tch");
-            system_info.link("torch_lite");
+            // system_info.link("torch_lite");
             return Ok(());
         }
 
