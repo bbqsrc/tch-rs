@@ -14,6 +14,8 @@
 #include<vector>
 #include "torch_api.h"
 
+using Kwargs = std::unordered_map<std::string, at::IValue>;
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -1111,14 +1113,22 @@ bool at_context_has_mps() {
 
 module atm_load(char *filename) {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new torch::jit::mobile::Module(torch::jit::_load_for_mobile(filename));
+#else
     return new torch::jit::script::Module(torch::jit::load(filename));
+#endif
   )
   return nullptr;
 }
 
 module atm_load_on_device(char *filename, int device) {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new torch::jit::mobile::Module(torch::jit::_load_for_mobile(filename, device_of_int(device)));
+#else
     return new torch::jit::script::Module(torch::jit::load(filename, device_of_int(device)));
+#endif
   )
   return nullptr;
 }
@@ -1126,7 +1136,11 @@ module atm_load_on_device(char *filename, int device) {
 module atm_load_str(char *data, size_t sz) {
   PROTECT(
     std::istringstream stream(std::string(data, sz));
+#ifdef LIBTORCH_LITE
+    return new torch::jit::mobile::Module(torch::jit::_load_for_mobile(stream));
+#else
     return new torch::jit::script::Module(torch::jit::load(stream));
+#endif
   )
   return nullptr;
 }
@@ -1134,17 +1148,29 @@ module atm_load_str(char *data, size_t sz) {
 module atm_load_str_on_device(char *data, size_t sz, int device) {
   PROTECT(
     std::istringstream stream(std::string(data, sz));
+#ifdef LIBTORCH_LITE
+    return new torch::jit::mobile::Module(torch::jit::_load_for_mobile(stream, device_of_int(device)));
+#else
     return new torch::jit::script::Module(torch::jit::load(stream, device_of_int(device)));
+#endif
   )
   return nullptr;
 }
 
 tensor atm_forward(module m, tensor *tensors, int ntensors) {
   PROTECT(
+#if LIBTORCH_LITE
+    std::vector<c10::IValue> inputs;
+#else
     std::vector<torch::jit::IValue> inputs;
+#endif
     for (int i = 0; i < ntensors; ++i)
       inputs.push_back(*(tensors[i]));
+#if LIBTORCH_LITE
+    c10::IValue output = m->forward(std::move(inputs));
+#else
     torch::jit::IValue output = m->forward(std::move(inputs));
+#endif
     if (!output.isTensor())
       throw std::invalid_argument("forward did not return a tensor");
     return new torch::Tensor(output.toTensor());
@@ -1156,11 +1182,21 @@ ivalue atm_forward_(module m,
                     ivalue *ivalues,
                     int nivalues) {
   PROTECT(
+#if LIBTORCH_LITE
+    std::vector<c10::IValue> inputs;
+#else
     std::vector<torch::jit::IValue> inputs;
+#endif
     for (int i = 0; i < nivalues; ++i)
       inputs.push_back(*(ivalues[i]));
+
+#if LIBTORCH_LITE
+    c10::IValue output = m->forward(std::move(inputs));
+    return new c10::IValue(output);
+#else
     torch::jit::IValue output = m->forward(std::move(inputs));
     return new torch::jit::IValue(output);
+#endif
   )
   return nullptr;
 }
@@ -1189,6 +1225,7 @@ ivalue atm_method_(module m, char *method_name, ivalue *ivalues, int nivalues) {
   return nullptr;
 }
 
+#ifndef LIBTORCH_LITE
 ivalue atm_create_class_(module m, char *clz_name, ivalue *ivalues, int nivalues) {
   PROTECT(
     std::vector<torch::jit::IValue> inputs;
@@ -1201,6 +1238,7 @@ ivalue atm_create_class_(module m, char *clz_name, ivalue *ivalues, int nivalues
   )
   return nullptr;
 }
+#endif
 
 void atm_eval(module m) {
   PROTECT(
@@ -1219,15 +1257,22 @@ void atm_free(module m) {
 }
 
 void atm_save(module m, char *filename) {
+#ifndef LIBTORCH_LITE
   PROTECT(
     m->save(filename);
   )
+#endif
+  // Save is not supported in lite interpreter
 }
 
 void atm_to(module m, int device, int dtype, bool non_blocking) {
+#ifdef LIBTORCH_LITE
+  // Do literally nothing - lite interpreter doesn't support device transfers
+#else
   PROTECT(
     m->to(device_of_int(device), at::ScalarType(dtype), non_blocking);
   )
+#endif
 }
 
 int atm_get_profiling_mode() {
@@ -1269,6 +1314,7 @@ bool atm_fuser_cuda_is_enabled() {
   return false;
 }
 
+#ifndef LIBTORCH_LITE
 module atm_create_for_tracing(
     char *modl_name,
     tensor *inputs,
@@ -1306,41 +1352,63 @@ void atm_end_tracing(module m, char *fn_name, tensor *outputs, int noutputs) {
     m->type()->addMethod(fn);
   )
 }
+#endif
 
 
 void atm_named_parameters(module m, void *data, void (*f)(void *, char *, tensor)) {
   PROTECT(
     for (const auto &p : m->named_parameters()) {
+#ifdef LIBTORCH_LITE
+      auto v = p.second;
+      f(data, (char*)p.first.c_str(), new torch::Tensor(v));
+#else
       auto v = p.value;
       f(data, (char*)p.name.c_str(), new torch::Tensor(v));
+#endif
     }
   )
 }
 
 ivalue ati_tensor(tensor t) {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new c10::IValue(*t);
+#else
     return new torch::jit::IValue(*t);
+#endif
   )
   return nullptr;
 }
 
 ivalue ati_int(int64_t i) {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new c10::IValue(i);
+#else
     return new torch::jit::IValue(i);
+#endif
   )
   return nullptr;
 }
 
 ivalue ati_double(double d) {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new c10::IValue(d);
+#else
     return new torch::jit::IValue(d);
+#endif
   )
   return nullptr;
 }
 
 ivalue ati_bool(int i) {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new c10::IValue((bool)i);
+#else
     return new torch::jit::IValue((bool)i);
+#endif
   )
   return nullptr;
 }
@@ -1348,14 +1416,22 @@ ivalue ati_bool(int i) {
 ivalue ati_string(char *s) {
   PROTECT(
     string str(s);
+#ifdef LIBTORCH_LITE
+    return new c10::IValue(str);
+#else
     return new torch::jit::IValue(str);
+#endif
   )
   return nullptr;
 }
 
 ivalue ati_none() {
   PROTECT(
+#ifdef LIBTORCH_LITE
+    return new c10::IValue();
+#else
     return new torch::jit::IValue();
+#endif
   )
   return nullptr;
 }

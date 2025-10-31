@@ -4,6 +4,13 @@
 
 #ifdef __cplusplus
 #include<torch/torch.h>
+
+#ifdef LIBTORCH_LITE
+  #include <torch/csrc/jit/mobile/import.h>
+  #include <torch/csrc/jit/mobile/module.h>
+  #include <torch/script.h>
+#endif
+
 #include<stdexcept>
 using namespace std;
 extern thread_local char *torch_last_err;
@@ -12,8 +19,13 @@ extern "C" {
 typedef torch::Tensor *tensor;
 typedef torch::Scalar *scalar;
 typedef torch::optim::Optimizer *optimizer;
+#ifdef LIBTORCH_LITE
+typedef torch::jit::mobile::Module *module;
+typedef c10::IValue *ivalue;
+#else
 typedef torch::jit::script::Module *module;
 typedef torch::jit::IValue *ivalue;
+#endif
 #define PROTECT(x) \
   try { \
     x \

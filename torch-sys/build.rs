@@ -380,7 +380,8 @@ impl SystemInfo {
                 // as DEP_TORCH_SYS_LIBTORCH_LIB, see:
                 // https://doc.rust-lang.org/cargo/reference/build-scripts.html#the-links-manifest-key
                 println!("cargo:libtorch_lib={}", self.libtorch_lib_dir.display());
-                cc::Build::new()
+                let mut build = cc::Build::new();
+                build
                     .cpp(true)
                     .pic(true)
                     .warnings(false)
@@ -389,8 +390,11 @@ impl SystemInfo {
                     .flag("-std=c++17")
                     .flag(format!("-D_GLIBCXX_USE_CXX11_ABI={}", self.cxx11_abi))
                     .flag("-DGLOG_USE_GLOG_EXPORT")
-                    .files(&c_files)
-                    .compile("tch");
+                    .files(&c_files);
+                if self.os == Os::Ios {
+                    build.flag("-DLIBTORCH_LITE=1");
+                }
+                build.compile("tch");
             }
             Os::Windows => {
                 // TODO: Pass "/link" "LIBPATH:{}" to cl.exe in order to emulate rpath.
@@ -461,6 +465,14 @@ fn main() -> anyhow::Result<()> {
         system_info.make();
 
         // println!("cargo:rustc-link-lib=static=tch");
+
+        // Special handling for iOS with lite interpreter
+        if system_info.os == Os::Ios {
+            println!("cargo:rustc-link-lib=static=tch");
+            system_info.link("torch_lite");
+            return Ok(());
+        }
+
         if use_cuda {
             system_info.link("torch_cuda")
         }
