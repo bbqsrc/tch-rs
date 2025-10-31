@@ -48,6 +48,8 @@ enum Os {
     Linux,
     Macos,
     Windows,
+    Ios,
+    Android,
 }
 
 #[allow(dead_code)]
@@ -175,13 +177,15 @@ impl SystemInfo {
             "linux" => Os::Linux,
             "windows" => Os::Windows,
             "macos" => Os::Macos,
+            "ios" => Os::Ios,
+            "android" => Os::Android,
             os => anyhow::bail!("unsupported TARGET_OS '{os}'"),
         };
         // Locate the currently active Python binary, similar to:
         // https://github.com/PyO3/maturin/blob/243b8ec91d07113f97a6fe74d9b2dcb88086e0eb/src/target.rs#L547
         let python_interpreter = match os {
             Os::Windows => PathBuf::from("python.exe"),
-            Os::Linux | Os::Macos => {
+            Os::Linux | Os::Macos | Os::Android | Os::Ios => {
                 if env::var_os("VIRTUAL_ENV").is_some() {
                     PathBuf::from("python")
                 } else {
@@ -268,6 +272,9 @@ impl SystemInfo {
     fn check_system_location(os: Os) -> Option<PathBuf> {
         match os {
             Os::Linux => Path::new("/usr/lib/libtorch.so").exists().then(|| PathBuf::from("/usr")),
+            Os::Macos => Path::new("/opt/homebrew/lib/libtorch.dylib")
+                .exists()
+                .then(|| PathBuf::from("/opt/homebrew")),
             _ => None,
         }
     }
@@ -308,40 +315,41 @@ impl SystemInfo {
             if !libtorch_dir.exists() {
                 fs::create_dir(&libtorch_dir).unwrap_or_default();
                 let libtorch_url = match os {
-                Os::Linux => format!(
-                    "https://download.pytorch.org/libtorch/{}/libtorch-cxx11-abi-shared-with-deps-{}{}.zip",
-                    device, TORCH_VERSION, match device.as_ref() {
-                        "cpu" => "%2Bcpu",
-                        "cu118" => "%2Bcu118",
-                        "cu121" => "%2Bcu121",
-                        "cu124" => "%2Bcu124",
-                        _ => anyhow::bail!("unsupported device {device}, TORCH_CUDA_VERSION may be set incorrectly?"),
-                    }
-                ),
-                Os::Macos => {
-                    if env::var("CARGO_CFG_TARGET_ARCH") == Ok(String::from("aarch64")) {
-                        get_pypi_wheel_url_for_aarch64_macosx().expect(
-                            "Failed to retrieve torch from pypi.  Pre-built version of libtorch for apple silicon are not available.
-                            You can install torch manually following the indications from https://github.com/LaurentMazare/tch-rs/issues/629
-                            pip3 install torch=={TORCH_VERSION}
-                            Then update the following environment variables:
-                            export LIBTORCH=$(python3 -c 'import torch; from pathlib import Path; print(Path(torch.__file__).parent)')
-                            export DYLD_LIBRARY_PATH=${{LIBTORCH}}/lib
-                            ")
-                    } else {
-                        format!("https://download.pytorch.org/libtorch/cpu/libtorch-macos-x86_64-{TORCH_VERSION}.zip")
-                    }
-                },
-                Os::Windows => format!(
-                    "https://download.pytorch.org/libtorch/{}/libtorch-win-shared-with-deps-{}{}.zip",
-                    device, TORCH_VERSION, match device.as_ref() {
-                        "cpu" => "%2Bcpu",
-                        "cu118" => "%2Bcu118",
-                        "cu121" => "%2Bcu121",
-                        "cu124" => "%2Bcu124",
-                        _ => ""
-                    }),
-            };
+                    Os::Linux => format!(
+                        "https://download.pytorch.org/libtorch/{}/libtorch-cxx11-abi-shared-with-deps-{}{}.zip",
+                        device, TORCH_VERSION, match device.as_ref() {
+                            "cpu" => "%2Bcpu",
+                            "cu118" => "%2Bcu118",
+                            "cu121" => "%2Bcu121",
+                            "cu124" => "%2Bcu124",
+                            _ => anyhow::bail!("unsupported device {device}, TORCH_CUDA_VERSION may be set incorrectly?"),
+                        }
+                    ),
+                    Os::Macos => {
+                        if env::var("CARGO_CFG_TARGET_ARCH") == Ok(String::from("aarch64")) {
+                            get_pypi_wheel_url_for_aarch64_macosx().expect(
+                                "Failed to retrieve torch from pypi.  Pre-built version of libtorch for apple silicon are not available.
+                                You can install torch manually following the indications from https://github.com/LaurentMazare/tch-rs/issues/629
+                                pip3 install torch=={TORCH_VERSION}
+                                Then update the following environment variables:
+                                export LIBTORCH=$(python3 -c 'import torch; from pathlib import Path; print(Path(torch.__file__).parent)')
+                                export DYLD_LIBRARY_PATH=${{LIBTORCH}}/lib
+                                ")
+                        } else {
+                            format!("https://download.pytorch.org/libtorch/cpu/libtorch-macos-x86_64-{TORCH_VERSION}.zip")
+                        }
+                    },
+                    Os::Windows => format!(
+                        "https://download.pytorch.org/libtorch/{}/libtorch-win-shared-with-deps-{}{}.zip",
+                        device, TORCH_VERSION, match device.as_ref() {
+                            "cpu" => "%2Bcpu",
+                            "cu118" => "%2Bcu118",
+                            "cu121" => "%2Bcu121",
+                            "cu124" => "%2Bcu124",
+                            _ => ""
+                        }),
+                    _ => anyhow::bail!("automatic download of libtorch is not supported on this platform"),
+                };
 
                 let filename = libtorch_dir.join(format!("v{TORCH_VERSION}.zip"));
                 download(&libtorch_url, &filename)?;
@@ -367,7 +375,7 @@ impl SystemInfo {
         }
 
         match self.os {
-            Os::Linux | Os::Macos => {
+            Os::Linux | Os::Macos | Os::Android | Os::Ios => {
                 // Pass the libtorch lib dir to crates that use torch-sys. This will be available
                 // as DEP_TORCH_SYS_LIBTORCH_LIB, see:
                 // https://doc.rust-lang.org/cargo/reference/build-scripts.html#the-links-manifest-key
@@ -470,70 +478,50 @@ fn main() -> anyhow::Result<()> {
         }
         if system_info.link_type == LinkType::Static {
             // Dynamically discover all .a files in the lib directory and subdirectories
-            use std::collections::HashSet;
-
-            fn walk_static_libs(
-                dir: &Path,
-                lib_dirs: &mut HashSet<PathBuf>,
-                libs: &mut Vec<String>,
-            ) -> io::Result<()> {
-                if dir.is_dir() {
-                    for entry in fs::read_dir(dir)? {
-                        let entry = entry?;
-                        let path = entry.path();
-                        if path.is_dir() {
-                            walk_static_libs(&path, lib_dirs, libs)?;
-                        } else if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                            if filename.ends_with(".a") && filename.starts_with("lib") {
-                                // Track the directory containing this .a file
-                                if let Some(parent) = path.parent() {
-                                    lib_dirs.insert(parent.to_path_buf());
-                                }
-                                // Extract library name: libfoo.a -> foo
-                                let lib_name = &filename[3..filename.len() - 2];
-                                libs.push(lib_name.to_string());
-                            }
-                        }
-                    }
-                }
-                Ok(())
-            }
-
-            // let mut lib_dirs = HashSet::new();
-            // let mut libs = Vec::new();
-
-            // if let Err(e) = walk_static_libs(&system_info.libtorch_lib_dir, &mut lib_dirs, &mut libs) {
-            //     eprintln!("Warning: failed to walk static library directory: {}", e);
-            // }
-
-            // Add link search paths for all directories containing .a files
-            // for lib_dir in lib_dirs {
-            // println!("cargo:rustc-link-search=native={}", lib_dir.display());
-            // }
-
-            // Link all discovered static libraries
-            // for lib in libs {
-            // system_info.link(&lib);
-            // }
 
             const LIBS: &[&str] = &[
-                "omp",
-                "cpuinfo",
-                "pthreadpool",
-                "kleidiai",
-                "sleef",
-                "XNNPACK",
-                "nnpack",
-                "pytorch_qnnpack",
-                "microkernels-prod",
-                "torch_cpu",
-                "torch",
+                "asmjit",
                 "c10",
+                "Caffe2_perfkernels_avx2",
                 "clog",
+                "cpuinfo",
+                "cpuinfo_internals",
+                "dnnl",
+                "fbgemm",
                 "fmt",
+                "gloo",
+                "iomp5md",
+                "iompstubs5md",
+                "ittnotify",
+                "kineto",
+                "kleidiai",
+                "microkernels-all",
+                "microkernels-prod",
+                "mimalloc",
+                "nnpack",
+                "nnpack_reference_layers",
+                "onnx",
+                "onnx_proto",
+                "omp",
+                "protobuf",
+                "protobuf-lite",
+                "pthreadpool",
+                "pytorch_qnnpack",
+                "sleef",
+                "tensorpipe",
+                "tensorpipe_uv",
+                "torch",
+                "torch_cpu",
+                "torch_global_deps",
+                "uv",
+                "XNNPACK",
             ];
 
             for lib in LIBS {
+                if !si_lib.join(format!("lib{lib}.a")).exists() {
+                    continue;
+                }
+
                 println!("cargo:rustc-link-lib=static:+whole-archive={lib}");
             }
 
