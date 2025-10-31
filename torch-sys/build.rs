@@ -502,7 +502,7 @@ fn main() -> anyhow::Result<()> {
                 "nnpack_reference_layers",
                 "onnx",
                 "onnx_proto",
-                "omp",
+                // "omp",
                 "protobuf",
                 "protobuf-lite",
                 "pthreadpool",
