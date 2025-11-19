@@ -1,2 +1,3 @@
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "link-arg=-Wl,--allow-shlib-undefined", "-C", "link-arg=-fno-lto"]
+rustflags = ["-C", "link-arg=-Wl,--allow-shlib-undefined", "-C", "link-arg=-fno-lto", "-Clinker-features=-lld"]
+
