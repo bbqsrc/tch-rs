@@ -5,10 +5,6 @@ fn main() {
             if let Some(lib_path) = std::env::var_os("DEP_TCH_LIBTORCH_LIB") {
                 println!("cargo:rustc-link-arg=-Wl,-rpath={}", lib_path.to_string_lossy());
             }
-
-            if os == "linux" {
-                println!("cargo:rustc-link-lib=static=numa");
-            }
         }
         _ => {}
     }

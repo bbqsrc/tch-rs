@@ -655,6 +655,8 @@ fn main() -> anyhow::Result<()> {
 
             if &*os == "macos" {
                 println!("cargo:rustc-link-lib=framework=Accelerate");
+            } else if &*os == "linux" {
+                println!("cargo:rustc-link-lib=static=numa");
             }
         } else {
             system_info.link("torch_cpu");
