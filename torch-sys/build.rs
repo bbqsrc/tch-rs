@@ -584,7 +584,7 @@ fn main() -> anyhow::Result<()> {
                 "c10",
                 "Caffe2_perfkernels_avx2",
                 "clog",
-                "cpuinfo",
+                // "cpuinfo",
                 "cpuinfo_internals",
                 "dnnl",
                 "fbgemm",
