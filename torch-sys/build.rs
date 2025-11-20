@@ -602,6 +602,7 @@ fn main() -> anyhow::Result<()> {
                 "nnpack_reference_layers",
                 "onnx",
                 "onnx_proto",
+                "onnx_torch",
                 // "omp",
                 "protobuf",
                 // "protobuf-lite",
@@ -618,7 +619,31 @@ fn main() -> anyhow::Result<()> {
                 "utf8_range",
             ];
 
-            for lib in LIBS {
+            let libcaffe2 = std::fs::read_dir(si_lib)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter_map(|x| {
+                    let path = x.path();
+                    if let Some(ext) = path.extension() {
+                        if ext == "a" {
+                            Some(path)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .filter_map(|x| x.file_name().map(|x| x.to_str().unwrap().to_string()))
+                .filter(|x| x.starts_with("libCaffe2"))
+                .collect::<Vec<String>>();
+
+            for lib in libcaffe2.iter() {
+                let lib = lib.trim_start_matches("lib").trim_end_matches(".a");
+                println!("cargo:rustc-link-lib=static:+whole-archive={lib}");
+            }
+
+            for lib in LIBS.iter() {
                 if !si_lib.join(format!("lib{lib}.a")).exists() {
                     continue;
                 }
