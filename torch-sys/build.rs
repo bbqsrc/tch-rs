@@ -657,12 +657,13 @@ fn main() -> anyhow::Result<()> {
                 println!("cargo:rustc-link-lib=framework=Accelerate");
             } else if &*os == "linux" {
                 let target = env::var("TARGET").context("TARGET variable not set")?;
-                if target.contains("aarch64") {
-                    println!("cargo:rustc-link-search=native=/usr/lib/aarch64-linux-gnu");
-                } else if target.contains("x86_64") {
-                    println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
+                if target.contains("gnu") {
+                    if target.contains("aarch64") {
+                        println!("cargo:rustc-link-search=native=/usr/lib/aarch64-linux-gnu");
+                    } else if target.contains("x86_64") {
+                        println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
+                    }
                 }
-                println!("cargo:rustc-link-lib=static=numa");
             }
         } else {
             system_info.link("torch_cpu");
