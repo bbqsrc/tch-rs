@@ -582,7 +582,7 @@ fn main() -> anyhow::Result<()> {
                 "absl_vlog_config_internal",
                 "asmjit",
                 "c10",
-                "Caffe2_perfkernels_avx2",
+                // "Caffe2_perfkernels_avx2",
                 "clog",
                 // "cpuinfo",
                 "cpuinfo_internals",
