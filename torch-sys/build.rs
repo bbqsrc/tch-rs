@@ -405,8 +405,8 @@ impl SystemInfo {
                     .pic(true)
                     .warnings(false)
                     .includes(&self.libtorch_include_dirs)
-                    .flag("/std:c++17")
-                    .flag("/p:DefineConstants=GLOG_USE_GLOG_EXPORT")
+                    .flag("-std:c++17")
+                    .flag("-DGLOG_USE_GLOG_EXPORT")
                     .files(&c_files)
                     .compile("tch");
             }
