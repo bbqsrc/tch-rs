@@ -397,9 +397,12 @@ impl SystemInfo {
                 build.compile("tch");
             }
             Os::Windows => {
-                // TODO: Pass "/link" "LIBPATH:{}" to cl.exe in order to emulate rpath.
-                //       Not yet supported by cc=rs.
-                //       https://github.com/alexcrichton/cc-rs/issues/323
+                // Use LLVM toolchain instead of MSVC (cl has ABI issues)
+                std::env::set_var("CC", "clang-cl");
+                std::env::set_var("CXX", "clang-cl");
+                std::env::set_var("LD", "lld-link");
+                std::env::set_var("AR", "llvm-lib");
+
                 cc::Build::new()
                     .cpp(true)
                     .pic(true)
